@@ -109,16 +109,21 @@ def filter2d(
     height, width = tmp_kernel.shape[-2:]
 
     # pad the input tensor
+    native_padding = 0
     if padding == 'same':
         padding_shape: List[int] = _compute_padding([height, width])
-        input = F.pad(input, padding_shape, mode=border_type)
+        if border_type == 'constant' and height % 2 == 1 and width % 2 == 1:
+            native_padding = (padding_shape[2], padding_shape[0])
+        else:
+            input = F.pad(input, padding_shape, mode=border_type)
+            raise ValueError(f"{height}, {width}, {border_type}, {padding_shape}")
 
     # kernel and input tensor reshape to align element-wise or batch-wise params
     tmp_kernel = tmp_kernel.reshape(-1, 1, height, width)
     input = input.view(-1, tmp_kernel.size(0), input.size(-2), input.size(-1))
 
     # convolve the tensor with the kernel.
-    output = F.conv2d(input, tmp_kernel, groups=tmp_kernel.size(0), padding=0, stride=1)
+    output = F.conv2d(input, tmp_kernel, groups=tmp_kernel.size(0), padding=native_padding, stride=1)
 
     if padding == 'same':
         out = output.view(b, c, h, w)
